@@ -160,9 +160,9 @@ class Mooring(om.ExplicitComponent):
         L_mooring = inputs["line_length"]
         gamma = self.options["gamma"]
         n_attach = self.options["options"]["n_attach"]
-        n_lines = self.options["options"]["n_anchors"]
+        n_lines = self.options["options"]["n_lines"]
         offset = float(inputs["max_surge_fraction"][0]) * water_depth
-        n_anchors = self.options["options"]["n_anchors"]
+        n_anchors = self.options["options"]["n_anchor"]
         ratio = int(n_anchors / n_attach)
 
         line_obj = None
@@ -223,7 +223,7 @@ class Mooring(om.ExplicitComponent):
             ifair = np.int_(k / ratio)
             config["lines"][k]["name"] = f"line{k}"
             config["lines"][k]["endA"] = f"fairlead{ifair}"
-            config["lines"][k]["endB"] = f"anchor{k}"
+            config["lines"][k]["endB"] = f"anchor{k}" # assume each lines has an anchor
             config["lines"][k]["type"] = "myline"
             config["lines"][k]["length"] = L_mooring
 

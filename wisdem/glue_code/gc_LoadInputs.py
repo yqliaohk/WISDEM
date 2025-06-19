@@ -599,6 +599,7 @@ class WindTurbineOntologyPython(object):
             self.modeling_options["mooring"]["line_material"] = [""] * n_lines
             self.modeling_options["mooring"]["line_anchor"] = [""] * n_lines
             fairlead_nodes = []
+            anchor_nodes = []
             for i in range(n_lines):
                 self.modeling_options["mooring"]["node1"][i] = self.wt_init["components"]["mooring"]["lines"][i][
                     "node1"
@@ -620,6 +621,10 @@ class WindTurbineOntologyPython(object):
                     fairlead_nodes.append(self.wt_init["components"]["mooring"]["nodes"][node1id]["joint"])
                 if self.modeling_options["mooring"]["node_type"][node2id] == "vessel":
                     fairlead_nodes.append(self.wt_init["components"]["mooring"]["nodes"][node2id]["joint"])
+                if self.modeling_options["mooring"]["node_type"][node1id] == "fixed":
+                    anchor_nodes.append(self.wt_init["components"]["mooring"]["nodes"][node1id]["joint"])
+                if self.modeling_options["mooring"]["node_type"][node2id] == "fixed":
+                    anchor_nodes.append(self.wt_init["components"]["mooring"]["nodes"][node2id]["joint"])
                 # Store the anchor type names to start
                 if "fix" in self.modeling_options["mooring"]["node_type"][node1id]:
                     self.modeling_options["mooring"]["line_anchor"][i] = self.modeling_options["mooring"][
@@ -665,7 +670,8 @@ class WindTurbineOntologyPython(object):
                             "anchor_type_type"
                         ][i]
             self.modeling_options["mooring"]["n_attach"] = len(set(fairlead_nodes))
-        
+            self.modeling_options["mooring"]["n_anchor"] = len(set(anchor_nodes))
+
         # VAWT strut
         if self.modeling_options["flags"]["vawt"] and self.modeling_options["flags"]["struts"]:
             self.modeling_options["OWENS"]["struts"] = {}
