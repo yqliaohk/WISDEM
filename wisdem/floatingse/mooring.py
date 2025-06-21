@@ -94,8 +94,10 @@ class Mooring(om.ExplicitComponent):
         self.options.declare("gamma")
 
     def setup(self):
-        n_lines = self.options["options"]["n_anchors"]
+        n_lines = self.options["options"]["n_lines"]
         n_attach = self.options["options"]["n_attach"]
+        n_anchor = self.options["options"]["n_anchor"]
+        n_free = self.options["options"]["n_free"]
 
         # Variables local to the class and not OpenMDAO
         self.finput = None
@@ -104,21 +106,29 @@ class Mooring(om.ExplicitComponent):
         self.add_input("water_depth", 0.0, units="m")
 
         # Design variables
-        self.add_input("fairlead_radius", 0.0, units="m")
-        self.add_input("fairlead", 0.0, units="m")
-        self.add_input("line_length", 0.0, units="m")
-        self.add_input("line_diameter", 0.0, units="m")
+        self.add_input("fairlead_radius", val=np.zeros(n_attach), units="m")
+        self.add_input("fairlead", val=np.zeros(n_attach), units="m")
+        self.add_input("fairlead_angle", val=np.zeros(n_attach), units="rad")
 
-        self.add_input("anchor_radius", 0.0, units="m")
-        self.add_input("anchor_mass", 0.0, units="kg")
-        self.add_input("anchor_cost", 0.0, units="USD")
-        self.add_input("anchor_max_vertical_load", 1e30, units="N")
-        self.add_input("anchor_max_lateral_load", 1e30, units="N")
 
-        self.add_input("line_mass_density_coeff", 0.0, units="kg/m**3")
-        self.add_input("line_stiffness_coeff", 0.0, units="N/m**2")
-        self.add_input("line_breaking_load_coeff", 0.0, units="N/m**2")
-        self.add_input("line_cost_rate_coeff", 0.0, units="USD/m**3")
+        self.add_input("line_length", val=np.zeros(n_lines), units="m")
+        self.add_input("line_diameter", val=np.zeros(n_lines), units="m")
+
+        self.add_input("anchor_radius", val=np.zeros(n_anchor), units="m")
+        self.add_input("anchor_angle", val=np.zeros(n_anchor), units="rad")
+        self.add_input("anchor_mass", val=np.zeros(n_anchor), units="kg")
+        self.add_input("anchor_cost", val=np.zeros(n_anchor), units="USD")
+        self.add_input("anchor_max_vertical_load", val=1e30 * np.ones(n_anchor), units="N")
+        self.add_input("anchor_max_lateral_load", val=1e30 * np.ones(n_anchor), units="N")
+        self.add_input("free_radius", val=np.zeros(n_free), units="m")
+        self.add_input("free_depth", val=np.zeros(n_free), units="m")
+        self.add_input("free_angle", val=np.zeros(n_free), units="rad")
+
+
+        self.add_input("line_mass_density_coeff", val=np.zeros(n_lines), units="kg/m**3")
+        self.add_input("line_stiffness_coeff", val=np.zeros(n_lines), units="N/m**2")
+        self.add_input("line_breaking_load_coeff", val=np.zeros(n_lines), units="N/m**2")
+        self.add_input("line_cost_rate_coeff", val=np.zeros(n_lines), units="USD/m**3")
 
         # User inputs (could be design variables)
         self.add_input("max_surge_fraction", 0.1)
@@ -138,8 +148,8 @@ class Mooring(om.ExplicitComponent):
         # Constraints
         self.add_output("constr_axial_load", 0.0)
         self.add_output("constr_mooring_length", 0.0)
-        self.add_output("constr_anchor_vertical", np.zeros(n_lines))
-        self.add_output("constr_anchor_lateral", np.zeros(n_lines))
+        self.add_output("constr_anchor_vertical", np.zeros(n_anchor))
+        self.add_output("constr_anchor_lateral", np.zeros(n_anchor))
 
     def compute(self, inputs, outputs):
         # Write MAP input file and analyze the system at every angle
@@ -151,7 +161,7 @@ class Mooring(om.ExplicitComponent):
     def evaluate_mooring(self, inputs, outputs):
         # Unpack variables
         water_depth = float(inputs["water_depth"][0])
-        fairlead_depth = float(inputs["fairlead"][0])
+        fairlead_depth = inputs["fairlead"]
         R_fairlead = float(inputs["fairlead_radius"][0])
         R_anchor = float(inputs["anchor_radius"][0])
         heel = float(inputs["operational_heel"][0])
@@ -161,9 +171,12 @@ class Mooring(om.ExplicitComponent):
         gamma = self.options["gamma"]
         n_attach = self.options["options"]["n_attach"]
         n_lines = self.options["options"]["n_lines"]
+        n_free = self.options["options"]["n_free"]
+        free_depth = inputs["free_depth"] # correct the connection
         offset = float(inputs["max_surge_fraction"][0]) * water_depth
         n_anchors = self.options["options"]["n_anchor"]
         ratio = int(n_anchors / n_attach)
+        mooropt = self.options["options"]
 
         line_obj = None
         line_mat = self.options["options"]["line_material"][0]
@@ -184,11 +197,11 @@ class Mooring(om.ExplicitComponent):
             cost_rate = line_obj.cost
 
         # Geometric constraints on line length
-        if L_mooring > (water_depth - fairlead_depth):
+        if np.max(L_mooring) > (water_depth - np.max(fairlead_depth)):
             self.tlpFlag = False
 
             # Create constraint that line isn't too long that there is no catenary hang
-            outputs["constr_mooring_length"] = L_mooring / (0.95 * (R_anchor + water_depth - fairlead_depth))
+            outputs["constr_mooring_length"] = np.max(L_mooring) / (0.95 * (np.max(R_anchor) + water_depth - np.max(fairlead_depth)))
         else:
             self.tlpFlag = True
             # Create constraint that we don't lose line tension
@@ -200,30 +213,57 @@ class Mooring(om.ExplicitComponent):
         config = {}
         config["water_depth"] = water_depth
 
-        config["points"] = [dict() for k in range(n_attach + n_anchors)]
-        angles = np.linspace(0, 2 * np.pi, n_attach + 1)[:n_attach]
-        angles -= np.mean(angles)
+        config["points"] = [dict() for k in range(n_attach + n_anchors + n_free)]
+        angles = inputs["fairlead_angle"]
         fair_x = R_fairlead * np.cos(angles)
         fair_y = R_fairlead * np.sin(angles)
-        angles = np.linspace(0, 2 * np.pi, n_anchors + 1)[:n_anchors]
-        angles -= np.mean(angles)
+        angles = inputs["anchor_angle"]
         anchor_x = R_anchor * np.cos(angles)
         anchor_y = R_anchor * np.sin(angles)
+        angles = inputs["free_angle"]
+        free_x = inputs["free_radius"] * np.cos(angles)
+        free_y = inputs["free_radius"] * np.sin(angles)
+        kfairlead = 0
+        kanchor = 0
+        kfree = 0
+        new_names = []
+        for k in range(mooropt["n_nodes"]):
+            if "vessel" in mooropt["node_type"][k]:
+                new_names.append(f"fairlead{kfairlead}")
+                kfairlead += 1
+            elif "fixed" in mooropt["node_type"][k]:
+                new_names.append(f"anchor{kanchor}")
+                kanchor += 1
+            elif "free" in mooropt["node_type"][k] or "connect" in mooropt["node_type"][k]:
+                new_names.append(f"free{kfree}")
+                kfree += 1
         for k in range(n_attach):
             config["points"][k]["name"] = f"fairlead{k}"
             config["points"][k]["type"] = "vessel"
-            config["points"][k]["location"] = [fair_x[k], fair_y[k], -fairlead_depth]
+            config["points"][k]["location"] = [fair_x[k], fair_y[k], -fairlead_depth[k]]
         for k in range(n_anchors):
             config["points"][k + n_attach]["name"] = f"anchor{k}"
             config["points"][k + n_attach]["type"] = "fixed"
             config["points"][k + n_attach]["location"] = [anchor_x[k], anchor_y[k], -water_depth]
+        for k in range(n_free):
+            config["points"][k + n_attach + n_anchors]["name"] = f"free{k}"
+            config["points"][k + n_attach + n_anchors]["type"] = "free"
+            config["points"][k + n_attach + n_anchors]["location"] = [free_x[k], free_y[k], -free_depth[k]]
+
 
         config["lines"] = [dict() for i in range(n_lines)]
         for k in range(n_lines):
-            ifair = np.int_(k / ratio)
+            # ifair = np.int_(k / ratio)
             config["lines"][k]["name"] = f"line{k}"
-            config["lines"][k]["endA"] = f"fairlead{ifair}"
-            config["lines"][k]["endB"] = f"anchor{k}" # assume each lines has an anchor
+            node1id = mooropt["node_names"].index(
+                mooropt["node1"][k]
+            )
+            node2id = mooropt["node_names"].index(
+                mooropt["node2"][k]
+            )
+
+            config["lines"][k]["endA"] = new_names[node1id]
+            config["lines"][k]["endB"] = new_names[node2id]
             config["lines"][k]["type"] = "myline"
             config["lines"][k]["length"] = L_mooring
 
@@ -253,7 +293,7 @@ class Mooring(om.ExplicitComponent):
         # Get the vertical load in the neutral position
         F_neut = np.zeros((n_attach, 3))
         for k in range(n_attach):
-            if np.abs(ms.pointList[k].r[-1] + fairlead_depth) < 0.1:
+            if np.abs(ms.pointList[k].r[-1] + fairlead_depth[k]) < 0.1:
                 F_neut[k, :] = ms.pointList[k].getForces(lines_only=True)
         outputs["mooring_neutral_load"] = F_neut
 
@@ -357,6 +397,6 @@ class Mooring(om.ExplicitComponent):
         legs_total = n_lines * cost_rate * L_mooring
 
         # Total summations
-        outputs["mooring_cost"] = legs_total + anchor_total
+        outputs["mooring_cost"] = legs_total + np.sum(anchor_total)
         outputs["line_mass"] = mass_den * L_mooring
         outputs["mooring_mass"] = (outputs["line_mass"] + anchor_mass) * n_lines

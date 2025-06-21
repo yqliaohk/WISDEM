@@ -2814,6 +2814,7 @@ class Mooring(om.Group):
 
         n_nodes = mooring_init_options["n_nodes"]
         n_lines = mooring_init_options["n_lines"]
+        n_anchor = mooring_init_options["n_anchor"]
 
         n_design = 1 if mooring_init_options["symmetric"] else n_lines
 
@@ -2838,10 +2839,10 @@ class Mooring(om.Group):
         ivc.add_output("line_tangential_added_mass_coeff", val=np.zeros(n_lines), units="kg/m**3")
         ivc.add_output("line_transverse_drag_coeff", val=np.zeros(n_lines), units="N/m**2")
         ivc.add_output("line_tangential_drag_coeff", val=np.zeros(n_lines), units="N/m**2")
-        ivc.add_output("anchor_mass", val=np.zeros(n_lines), units="kg")
-        ivc.add_output("anchor_cost", val=np.zeros(n_lines), units="USD")
-        ivc.add_output("anchor_max_vertical_load", val=1e30 * np.ones(n_lines), units="N")
-        ivc.add_output("anchor_max_lateral_load", val=1e30 * np.ones(n_lines), units="N")
+        ivc.add_output("anchor_mass", val=np.zeros(n_anchor), units="kg")
+        ivc.add_output("anchor_cost", val=np.zeros(n_anchor), units="USD")
+        ivc.add_output("anchor_max_vertical_load", val=1e30 * np.ones(n_anchor), units="N")
+        ivc.add_output("anchor_max_lateral_load", val=1e30 * np.ones(n_anchor), units="N")
 
         self.add_subsystem("moorprop", MooringProperties(mooring_init_options=mooring_init_options), promotes=["*"])
         self.add_subsystem("moorjoint", MooringJoints(options=self.options["options"]), promotes=["*"])
@@ -2930,6 +2931,7 @@ class MooringJoints(om.ExplicitComponent):
         n_attach = mooring_init_options["n_attach"]
         n_lines = mooring_init_options["n_lines"]
         n_anchor = mooring_init_options["n_anchor"]
+        n_free = mooring_init_options["n_free"]
 
         self.add_discrete_input("nodes_joint_name", val=[""] * n_nodes)
         self.add_input("nodes_location", val=np.zeros((n_nodes, 3)), units="m")
@@ -2937,10 +2939,16 @@ class MooringJoints(om.ExplicitComponent):
 
         self.add_output("mooring_nodes", val=np.zeros((n_nodes, 3)), units="m")
         self.add_output("fairlead_nodes", val=np.zeros((n_attach, 3)), units="m")
-        self.add_output("fairlead", val=np.zeros(n_lines), units="m")
+        self.add_output("fairlead", val=np.zeros(n_attach), units="m")
+        self.add_output("fairlead_angle", val=np.zeros(n_attach), units="rad")
+        self.add_output("free_depth", val=np.zeros(n_free), units="m")
         self.add_output("fairlead_radius", val=np.zeros(n_attach), units="m")
         self.add_output("anchor_nodes", val=np.zeros((n_anchor, 3)), units="m")
         self.add_output("anchor_radius", val=np.zeros(n_anchor), units="m")
+        self.add_output("anchor_angle", val=np.zeros(n_anchor), units="rad")
+        self.add_output("free_nodes", val=np.zeros((n_free, 3)), units="m")
+        self.add_output("free_radius", val=np.zeros(n_free), units="m")
+        self.add_output("free_angle", val=np.zeros(n_free), units="rad")
 
     def compute(self, inputs, outputs, discrete_inputs, discrete_outputs):
         mooring_init_options = self.options["options"]["mooring"]
@@ -2965,22 +2973,34 @@ class MooringJoints(om.ExplicitComponent):
         
         ifair = np.where(np.array(mooring_init_options['node_type']) == 'vessel')[0]
         ianch = np.where(np.array(mooring_init_options['node_type']) == 'fixed')[0]
-        
-        z_fair = node_loc[ifair, 2].mean()
-        z_anch = node_loc[ianch, 2].mean()
+        arr = np.array(mooring_init_options['node_type'])
+        ifree = np.where((arr == 'free') | (arr == 'connect'))[0]
+
+        z_fair = node_loc[ifair, 2]
+        z_anch = node_loc[ianch, 2]
+        z_free = node_loc[ifree, 2]
 
         node_fair = node_loc[ifair, :]
         node_anch = node_loc[ianch, :]
+        node_free = node_loc[ifree, :]
         ang_fair = np.arctan2(node_fair[:, 1], node_fair[:, 0])
         ang_anch = np.arctan2(node_anch[:, 1], node_anch[:, 0])
+        ang_free = np.arctan2(node_free[:, 1], node_free[:, 0])
         node_fair = np.unique(node_fair[np.argsort(ang_fair), :], axis=0)
         node_anch = np.unique(node_anch[np.argsort(ang_anch), :], axis=0)
+        node_free = np.unique(node_free[np.argsort(ang_free), :], axis=0)
 
         outputs["fairlead_nodes"] = node_fair
         outputs["anchor_nodes"] = node_anch
+        outputs["free_nodes"] = node_free
         outputs["fairlead"] = -z_fair  # Positive is defined below the waterline here
+        outputs["free_depth"] = -z_free  # Positive is defined below the waterline here
         outputs["fairlead_radius"] = np.sqrt(np.sum(node_fair[:,:2] ** 2, axis=1))
         outputs["anchor_radius"] = np.sqrt(np.sum(node_anch[:,:2] ** 2, axis=1))
+        outputs["free_radius"] = np.sqrt(np.sum(node_free[:,:2] ** 2, axis=1))
+        outputs["fairlead_angle"] = ang_fair
+        outputs["anchor_angle"] = ang_anch
+        outputs["free_angle"] = ang_free
 
 
 

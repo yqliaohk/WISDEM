@@ -14,11 +14,12 @@ class FloatingConstraints(om.ExplicitComponent):
         opt = self.options["modeling_options"]
         n_dlc = opt["WISDEM"]["n_dlc"]
         n_member = opt["floating"]["members"]["n_members"]
+        n_attach = opt["mooring"]["n_attach"]
 
         self.add_input("Hsig_wave", 0.0, units="m")
         self.add_input("variable_ballast_mass", 0.0, units="kg")
-        self.add_input("fairlead_radius", 0.0, units="m")
-        self.add_input("fairlead", 0.0, units="m")
+        self.add_input("fairlead_radius", val=np.zeros(n_attach), units="m")
+        self.add_input("fairlead", val=np.zeros(n_attach), units="m")
         self.add_input("survival_heel", 0.0, units="rad")
         tot_ball = 0
         for k in range(n_member):

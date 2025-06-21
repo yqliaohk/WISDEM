@@ -573,7 +573,8 @@ class WindTurbineOntologyPython(object):
             ]
             self.modeling_options["mooring"]["n_nodes"] = n_nodes
             self.modeling_options["mooring"]["n_lines"] = n_lines
-            self.modeling_options["mooring"]["n_anchors"] = n_lines
+            self.modeling_options["mooring"]["n_anchors"] = np.sum(np.array([n['node_type'] == 'fixed' for n in self.wt_init['components']['mooring']['nodes']]))
+            self.modeling_options["mooring"]["n_free"] = np.sum(np.array([n['node_type'] == 'free' or n['node_type'] == 'connect' for n in self.wt_init['components']['mooring']['nodes']]))
             self.modeling_options["mooring"]["n_line_types"] = n_line_types
             self.modeling_options["mooring"]["n_anchor_types"] = n_anchor_types
             self.modeling_options["mooring"]["node_type"] = [""] * n_nodes
@@ -600,6 +601,7 @@ class WindTurbineOntologyPython(object):
             self.modeling_options["mooring"]["line_anchor"] = [""] * n_lines
             fairlead_nodes = []
             anchor_nodes = []
+            free_nodes = []
             for i in range(n_lines):
                 self.modeling_options["mooring"]["node1"][i] = self.wt_init["components"]["mooring"]["lines"][i][
                     "node1"
@@ -625,6 +627,10 @@ class WindTurbineOntologyPython(object):
                     anchor_nodes.append(self.wt_init["components"]["mooring"]["nodes"][node1id]["joint"])
                 if self.modeling_options["mooring"]["node_type"][node2id] == "fixed":
                     anchor_nodes.append(self.wt_init["components"]["mooring"]["nodes"][node2id]["joint"])
+                if self.modeling_options["mooring"]["node_type"][node1id] == "free" or self.modeling_options["mooring"]["node_type"][node1id] == "connect":
+                    free_nodes.append(self.wt_init["components"]["mooring"]["nodes"][node1id]["joint"])
+                if self.modeling_options["mooring"]["node_type"][node2id] == "free" or self.modeling_options["mooring"]["node_type"][node2id] == "connect":
+                    free_nodes.append(self.wt_init["components"]["mooring"]["nodes"][node2id]["joint"])
                 # Store the anchor type names to start
                 if "fix" in self.modeling_options["mooring"]["node_type"][node1id]:
                     self.modeling_options["mooring"]["line_anchor"][i] = self.modeling_options["mooring"][
