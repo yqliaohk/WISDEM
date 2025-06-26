@@ -86,8 +86,8 @@ class TestGroup(unittest.TestCase):
         opt["WISDEM"]["RotorSE"]["n_pc"] = 20
         opt["materials"] = {}
         opt["materials"]["n_mat"] = 1
-        opt["WISDEM"]["GeneratorSE"] = {}
-        opt["WISDEM"]["GeneratorSE"]["type"] = "pmsg_outer"
+        opt["WISDEM"]["DriveSE"]["generator"] = {}
+        opt["WISDEM"]["DriveSE"]["generator"]["type"] = "pmsg_outer"
         opt["flags"] = {}
         opt["flags"]["generator"] = True
 
@@ -258,8 +258,8 @@ class TestGroup(unittest.TestCase):
         opt["WISDEM"]["DriveSE"]["gamma_n"] = 1.0
         opt["WISDEM"]["DriveSE"]["frame3dd"] = {}
         opt["WISDEM"]["DriveSE"]["frame3dd"]['flag'] = True
-        opt["WISDEM"]["GeneratorSE"] = {}
-        opt["WISDEM"]["GeneratorSE"]["type"] = "dfig"
+        opt["WISDEM"]["DriveSE"]["generator"] = {}
+        opt["WISDEM"]["DriveSE"]["generator"]["type"] = "dfig"
         opt["WISDEM"]["RotorSE"] = {}
         opt["WISDEM"]["RotorSE"]["n_pc"] = 20
         opt["materials"] = {}

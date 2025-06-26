@@ -530,6 +530,8 @@ class PoseOptimization(object):
             )
 
         if "structure" in blade_opt and len(blade_opt["structure"]) > 0:
+            if self.modeling["user_elastic"]["blade"]:
+                raise Exception("Blade structural design variables not available for user-defined blade elastic model. Please modify the modeling or optimization options.")
             layers = wt_init["components"]["blade"]["internal_structure_2d_fem"]["layers"]
             for i in range(len(blade_opt["structure"])):
                 k = blade_opt["layer_index_opt"][i]
@@ -1424,9 +1426,11 @@ class PoseOptimization(object):
                 )
                 init_stall_margin_opt = stall_margin_interpolator(wt_opt["inn_af.s_opt_stall_margin"])
                 wt_opt["inn_af.stall_margin_opt"] = init_stall_margin_opt
-
-            layers = wt_init["components"]["blade"]["internal_structure_2d_fem"]["layers"]
-
+            
+            if not self.modeling["user_elastic"]["blade"]:
+                # YL: no internal structure optimization when using user-defined blade elastic properties
+                layers = wt_init["components"]["blade"]["internal_structure_2d_fem"]["layers"]
+    
             # For OWENS radius distribution, TODO: move this to weis?
             if self.modeling["flags"]["vawt"]:
                 wt_opt["blade.opt_var.s_opt_radius"] = np.linspace(0.0, 1.0, blade_opt["aero_shape"]["rotor_radius_vawt"]["n_opt"])
@@ -1446,30 +1450,30 @@ class PoseOptimization(object):
                     wt_opt["blade.opt_var.rotor_radius_vawt"] = init_rotor_radius_vawt_opt
 
             for i in range(self.modeling["WISDEM"]["RotorSE"]["n_layers"]):
-                wt_opt["blade.opt_var.s_opt_layer_%d"%i] = np.linspace(
-                    0.0, 1.0, blade_opt["n_opt_struct"][i]
-                )
-                thick_interp = PchipInterpolator(
-                            layers[i]["thickness"]["grid"],
-                            layers[i]["thickness"]["values"],
-                            extrapolate=False)
-                init_opt = thick_interp(wt_opt["blade.opt_var.s_opt_layer_%d"%i])
-                wt_opt["blade.opt_var.layer_%d_opt"%i] = np.nan_to_num(init_opt, nan=0.)
-
-            if self.modeling["WISDEM"]["RotorSE"]["flag"]:
-                blade_constr = self.opt["constraints"]["blade"]
-                wt_opt["rotorse.rs.constr.max_strainU_spar"] = blade_constr["strains_spar_cap_ss"]["max"]
-                wt_opt["rotorse.rs.constr.max_strainL_spar"] = blade_constr["strains_spar_cap_ps"]["max"]
-                if blade_constr["rail_transport"]["flag"]:
-                    wt_opt["rotorse.re.rail.max_strains"] = min(
-                        blade_constr["strains_spar_cap_ss"]["max"], blade_constr["strains_spar_cap_ps"]["max"]
+                    wt_opt["blade.opt_var.s_opt_layer_%d"%i] = np.linspace(
+                        0.0, 1.0, blade_opt["n_opt_struct"][i]
                     )
+                    thick_interp = PchipInterpolator(
+                                layers[i]["thickness"]["grid"],
+                                layers[i]["thickness"]["values"],
+                                extrapolate=False)
+                    init_opt = thick_interp(wt_opt["blade.opt_var.s_opt_layer_%d"%i])
+                    wt_opt["blade.opt_var.layer_%d_opt"%i] = np.nan_to_num(init_opt, nan=0.)
 
-                wt_opt["rotorse.rs.constr.max_strainU_te"] = blade_constr["strains_te_ss"]["max"]
-                wt_opt["rotorse.rs.constr.max_strainL_te"] = blade_constr["strains_te_ps"]["max"]
-                wt_opt["rotorse.stall_check.stall_margin"] = blade_constr["stall"]["margin"] * 180.0 / np.pi
-                if self.modeling["flags"]["tower"]:
-                    wt_opt["tcons.max_allowable_td_ratio"] = blade_constr["tip_deflection"]["margin"]
+                if self.modeling["WISDEM"]["RotorSE"]["flag"]:
+                    blade_constr = self.opt["constraints"]["blade"]
+                    wt_opt["rotorse.rs.constr.max_strainU_spar"] = blade_constr["strains_spar_cap_ss"]["max"]
+                    wt_opt["rotorse.rs.constr.max_strainL_spar"] = blade_constr["strains_spar_cap_ps"]["max"]
+                    if blade_constr["rail_transport"]["flag"]:
+                        wt_opt["rotorse.re.rail.max_strains"] = min(
+                            blade_constr["strains_spar_cap_ss"]["max"], blade_constr["strains_spar_cap_ps"]["max"]
+                        )
+
+                    wt_opt["rotorse.rs.constr.max_strainU_te"] = blade_constr["strains_te_ss"]["max"]
+                    wt_opt["rotorse.rs.constr.max_strainL_te"] = blade_constr["strains_te_ps"]["max"]
+                    wt_opt["rotorse.stall_check.stall_margin"] = blade_constr["stall"]["margin"] * 180.0 / np.pi
+                    if self.modeling["flags"]["tower"]:
+                        wt_opt["tcons.max_allowable_td_ratio"] = blade_constr["tip_deflection"]["margin"]
 
         if self.modeling["flags"]["nacelle"]:
             drive_constr = self.opt["constraints"]["drivetrain"]
