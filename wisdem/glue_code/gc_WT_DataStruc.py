@@ -3029,9 +3029,10 @@ class MooringJoints(om.ExplicitComponent):
         ang_fair = np.arctan2(node_fair[:, 1], node_fair[:, 0])
         ang_anch = np.arctan2(node_anch[:, 1], node_anch[:, 0])
         ang_free = np.arctan2(node_free[:, 1], node_free[:, 0])
-        node_fair = np.unique(node_fair[np.argsort(ang_fair), :], axis=0)
-        node_anch = np.unique(node_anch[np.argsort(ang_anch), :], axis=0)
-        node_free = np.unique(node_free[np.argsort(ang_free), :], axis=0)
+        # YL: Don't sort to remove duplicates
+        # node_fair = np.unique(node_fair[np.argsort(ang_fair), :], axis=0)
+        # node_anch = np.unique(node_anch[np.argsort(ang_anch), :], axis=0)
+        # node_free = np.unique(node_free[np.argsort(ang_free), :], axis=0)
 
         outputs["fairlead_nodes"] = node_fair
         outputs["anchor_nodes"] = node_anch

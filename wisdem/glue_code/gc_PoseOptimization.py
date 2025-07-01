@@ -696,7 +696,7 @@ class PoseOptimization(object):
 
         if drive_opt["generator_length"]["flag"]:
             wt_opt.model.add_design_var(
-                "nacelle.L_generator",
+                "generator.L_generator",
                 lower=drive_opt["generator_length"]["lower_bound"],
                 upper=drive_opt["generator_length"]["upper_bound"],
             )
@@ -1450,15 +1450,15 @@ class PoseOptimization(object):
                     wt_opt["blade.opt_var.rotor_radius_vawt"] = init_rotor_radius_vawt_opt
 
             for i in range(self.modeling["WISDEM"]["RotorSE"]["n_layers"]):
-                    wt_opt["blade.opt_var.s_opt_layer_%d"%i] = np.linspace(
-                        0.0, 1.0, blade_opt["n_opt_struct"][i]
-                    )
-                    thick_interp = PchipInterpolator(
-                                layers[i]["thickness"]["grid"],
-                                layers[i]["thickness"]["values"],
-                                extrapolate=False)
-                    init_opt = thick_interp(wt_opt["blade.opt_var.s_opt_layer_%d"%i])
-                    wt_opt["blade.opt_var.layer_%d_opt"%i] = np.nan_to_num(init_opt, nan=0.)
+                wt_opt["blade.opt_var.s_opt_layer_%d"%i] = np.linspace(
+                    0.0, 1.0, blade_opt["n_opt_struct"][i]
+                )
+                thick_interp = PchipInterpolator(
+                            layers[i]["thickness"]["grid"],
+                            layers[i]["thickness"]["values"],
+                            extrapolate=False)
+                init_opt = thick_interp(wt_opt["blade.opt_var.s_opt_layer_%d"%i])
+                wt_opt["blade.opt_var.layer_%d_opt"%i] = np.nan_to_num(init_opt, nan=0.)
 
                 if self.modeling["WISDEM"]["RotorSE"]["flag"]:
                     blade_constr = self.opt["constraints"]["blade"]

@@ -48,7 +48,7 @@ class WindTurbineOntologyPython(object):
         flags["vawt"] = (self.wt_init["assembly"]["turbine_type"] == "vertical")
 
         # MHK flag
-        flags["flags"]["marine_hydro"] = self.wt_init["assembly"]["marine_hydro"]
+        flags["marine_hydro"] = self.wt_init["assembly"]["marine_hydro"]
         if flags["marine_hydro"]:
             flags["offshore"] = True
 
@@ -638,8 +638,8 @@ class WindTurbineOntologyPython(object):
                         self.modeling_options["mooring"]["line_anchor"][j] = self.modeling_options["mooring"][
                             "anchor_type_type"
                         ][i]
-            self.modeling_options["mooring"]["n_attach"] = len(set(fairlead_nodes))
-            self.modeling_options["mooring"]["n_anchor"] = len(set(anchor_nodes))
+            self.modeling_options["mooring"]["n_attach"] = len(fairlead_nodes)
+            self.modeling_options["mooring"]["n_anchor"] = len(anchor_nodes)
 
         # VAWT strut
         if self.modeling_options["flags"]["vawt"] and self.modeling_options["flags"]["struts"]:
