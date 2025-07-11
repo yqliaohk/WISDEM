@@ -162,12 +162,12 @@ class Mooring(om.ExplicitComponent):
         # Unpack variables
         water_depth = float(inputs["water_depth"][0])
         fairlead_depth = inputs["fairlead"]
-        R_fairlead = float(inputs["fairlead_radius"][0])
-        R_anchor = float(inputs["anchor_radius"][0])
+        R_fairlead = inputs["fairlead_radius"]
+        R_anchor = inputs["anchor_radius"]
         heel = float(inputs["operational_heel"][0])
         max_heel = float(inputs["survival_heel"][0])
         d = float(inputs["line_diameter"][0])
-        L_mooring = float(inputs["line_length"][0])
+        L_mooring = inputs["line_length"]
         gamma = self.options["gamma"]
         n_attach = self.options["options"]["n_attach"]
         n_lines = self.options["options"]["n_lines"]
@@ -265,7 +265,7 @@ class Mooring(om.ExplicitComponent):
             config["lines"][k]["endA"] = new_names[node1id]
             config["lines"][k]["endB"] = new_names[node2id]
             config["lines"][k]["type"] = "myline"
-            config["lines"][k]["length"] = L_mooring
+            config["lines"][k]["length"] = L_mooring[k]
 
         config["line_types"] = [{}]
         config["line_types"][0]["name"] = "myline"
